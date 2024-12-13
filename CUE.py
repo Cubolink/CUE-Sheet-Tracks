@@ -85,7 +85,7 @@ def main(arg=sys.argv[1:]):
             for i in datacu[b'TITLE']:
                 i = i.decode('utf-8')
                 ior = validtitle(i)
-                track_number = str(a + 1) 
+                track_number = f"{(a + 1):02d}"
                 otfl = f'{track_number}. {ior}_tmp{ext}' 
                 otfl_fn = f'{track_number}. {ior}{ext}' 
                 if dspth:
