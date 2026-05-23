@@ -19,8 +19,20 @@ def validate_album_art(image_path):
     
     return image_path
 
+metadata={
+    b"TITLE":[],
+    b"PERFORMER":[],
+    b"INDEX":[],
+    b"REM COMPOSER":[],
+    b"REM DATE":[],
+    b"REM GENRE":[]
+}
 
-metadata={b"TITLE":[],b"PERFORMER":[],b"INDEX":[],b"REM COMPOSER":[]}
+album_title=""
+album_performer=""
+album_composer=""
+album_date=""
+album_genre=""
 
 def timedif(i1,i2):
     i1,i2=i1.split(":"),i2.split(":")
@@ -41,9 +53,46 @@ def fixtimestamp(check):
     metadata[b"INDEX"]=index3
 
 def cuedata(pth):
+ global metadata
+ global album_title
+ global album_performer
+ global album_composer
+ global album_date
+ global album_genre
+
+ metadata={
+    b"TITLE":[],
+    b"PERFORMER":[],
+    b"INDEX":[],
+    b"REM COMPOSER":[],
+    b"REM DATE":[],
+    b"REM GENRE":[]
+ }
+
+ album_title=""
+ album_performer=""
+ album_composer=""
+ album_date=""
+ album_genre=""
+ 
  with open(pth,"+r",encoding="utf-8") as ff:
   f=ff.read()
   k=f.encode('utf-8')
+ 
+ # Parse album-level metadata
+ for line in k.split(b"\n"):
+  sline=line.strip()
+  if sline.startswith(b"TITLE") and album_title=="":
+    album_title=sline.split(b"TITLE")[1].strip().strip(b'"').decode("utf-8")
+  elif sline.startswith(b"PERFORMER") and album_performer=="":
+    album_performer=sline.split(b"PERFORMER")[1].strip().strip(b'"').decode("utf-8")
+  elif sline.startswith(b"REM COMPOSER"):
+    album_composer=sline.split(b"REM COMPOSER")[1].strip().strip(b'"').decode("utf-8")
+  elif sline.startswith(b"REM DATE"):
+    album_date=sline.split(b"REM DATE")[1].strip().decode("utf-8")
+  elif sline.startswith(b"REM GENRE"):
+    album_genre=sline.split(b"REM GENRE")[1].strip().strip(b'"').decode("utf-8")
+ 
  ff=k.split(b"TRACK")
  ff.pop(0)
  check={}
@@ -162,16 +211,29 @@ def main(args):
                 b+=adde
                 trno=f'track={a}'
                 print(f"TRACK {a}: {i}")
-                if wolfe:
-                    if ext!='.flac':
-                     cmd=["ffmpeg","-hide_banner","-ss",stime,"-y","-i",mfile,"-avoid_negative_ts","make_zero","-c","copy","-metadata",tit,"-metadata",artt,"-metadata",trno,otfl]
-                    else:
-                     cmd=["ffmpeg","-hide_banner","-ss",stime,"-y","-i",mfile,"-avoid_negative_ts","make_zero","-map","0","-metadata",tit,"-metadata",artt,"-metadata",trno,otfl]
+                cmd=["ffmpeg","-hide_banner","-ss",stime,"-y","-i",mfile]
+                
+                if not wolfe:
+                    cmd+=["-t",diff]
+                
+                cmd += ["-avoid_negative_ts","make_zero"]
+                
+                if ext=='.flac':
+                    cmd+=["-map","0","-c:a","flac"]
                 else:
-                    if ext!='.flac':
-                        cmd=["ffmpeg","-hide_banner","-ss",stime,"-y","-i",mfile,"-t",diff,"-avoid_negative_ts","make_zero","-c","copy","-metadata",tit,"-metadata",artt,"-metadata",trno,otfl]
-                    else:
-                        cmd=["ffmpeg","-hide_banner","-ss",stime,"-y","-i",mfile,"-t",diff,"-map","0","-metadata",tit,"-metadata",artt,"-metadata",trno,otfl]
+                    cmd+=["-c","copy"]
+                cmd+=[
+                    "-metadata",tit,
+                    "-metadata",artt,
+                    "-metadata",trno,
+                    "-metadata",f'album={album_title}',
+                    "-metadata",f'album_artist={album_performer}',
+                    "-metadata",f'composer={album_composer}',
+                    "-metadata",f'date={album_date}',
+                    "-metadata",f'genre={album_genre}',
+                    otfl
+                ]
+                
                 aa=subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 cimgad=['ffmpeg','-hide_banner','-y','-i',otfl,'-i',asmodeus,'-map','0:a','-map','1','-codec','copy','-metadata:s:v','title="Album cover"','-metadata:s:v','comment="Cover (front)"','-disposition:v','attached_pic',otfl_fn]
                 aimgad=subprocess.run(cimgad, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
