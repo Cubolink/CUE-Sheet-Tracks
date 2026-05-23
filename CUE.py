@@ -133,9 +133,12 @@ def chaff(time):
     return time
     
 def validtitle(name):
-    for inva in ['/','\\','?','%','*',':', '|', '”', '<','>']:
+    for inva in ['/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '”', '“']:
         if inva in name:
             name=name.replace(inva,'')
+    
+    name=name.strip().rstrip('.')
+
     return name
 
 def main(args):
