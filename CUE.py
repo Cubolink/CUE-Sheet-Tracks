@@ -41,6 +41,21 @@ def timedif(i1,i2):
     b=(int(i2[0])*60)+int(i2[1])
     return b-a
 
+def cue_to_seconds(ts):
+    mm, ss, ff = ts.split(":")
+    return int(mm) * 60 + int(ss) + int(ff) / 75.0
+
+
+def cue_to_ffmpeg_time(ts):
+    mm, ss, ff = ts.split(":")
+    total_seconds = int(mm) * 60 + int(ss) + int(ff) / 75.0
+
+    hours = int(total_seconds // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+    seconds = total_seconds % 60
+
+    return f"{hours:02d}:{minutes:02d}:{seconds:06.3f}"
+
     
 def parsetrack(trackblock):
     track_title=None
@@ -204,15 +219,15 @@ def main(args):
                     artt='artist='+datacu[b'PERFORMER'][a].decode('utf-8')
                 except:
                     artt='artist='
-                stime=datacu[b'INDEX'][b].decode('utf-8').strip()
-                if b+1<totaltracks:
-                    etime=datacu[b'INDEX'][b+1].decode('utf-8').strip()
-                    diff=str(timedif(stime,etime))
-                    wolfe=0
+                stime_raw = datacu[b'INDEX'][b].decode('utf-8').strip()
+                if b+1 < totaltracks:
+                    etime_raw = datacu[b'INDEX'][b+1].decode('utf-8').strip()
+                    diff = str(cue_to_seconds(etime_raw) - cue_to_seconds(stime_raw))
+                    wolfe = 0
                 else:
-                    wolfe=1
-                stime=stime.rsplit(":",1)[0]
-                stime=chaff(stime)
+                    wolfe = 1
+
+                stime = cue_to_ffmpeg_time(stime_raw)
                 a+=1
                 b+=1
                 trno=f'track={a}'
