@@ -1,3 +1,4 @@
+import re
 import os
 import subprocess
 import argparse
@@ -40,17 +41,38 @@ def timedif(i1,i2):
     b=(int(i2[0])*60)+int(i2[1])
     return b-a
 
-def fixtimestamp(check):
-    index2=metadata[b"INDEX"]
-    index3=[]
-    a=0
-    for i in check:
-        if len(check[i])==2:
-            index3+=[index2[a+1]]
-        else:
-            index3+=[index2[a]]
-        a+=len(check[i])
-    metadata[b"INDEX"]=index3
+    
+def parsetrack(trackblock):
+    track_title=None
+    track_performer=None
+    track_indexes=[]
+
+    for spi in trackblock.split(b"\n"):
+
+        spi=spi.strip()
+
+        if spi.startswith(b"TITLE"):
+            track_title=spi.split(b"TITLE",1)[1].strip().strip(b'"')
+        elif spi.startswith(b"PERFORMER"):
+            track_performer=spi.split(b"PERFORMER",1)[1].strip().strip(b'"')
+        elif spi.startswith(b"INDEX"):
+            parts=spi.split()
+            idx_type=parts[1]
+            idx_time=parts[2]
+            if idx_type==b"01":
+                track_indexes.append(idx_time)
+
+    if track_title is None:
+        track_title=b"UNKNOWN_TRACK"
+
+    if track_performer is None:
+        track_performer=b""
+
+    return {
+        "title":track_title,
+        "performer":track_performer,
+        "indexes":track_indexes
+    }
 
 def cuedata(pth):
  global metadata
@@ -93,30 +115,18 @@ def cuedata(pth):
   elif sline.startswith(b"REM GENRE"):
     album_genre=sline.split(b"REM GENRE")[1].strip().strip(b'"').decode("utf-8")
  
- ff=k.split(b"TRACK")
+ ff=re.split(rb'\n\s*TRACK\s+\d+\s+AUDIO',k)
  ff.pop(0)
- check={}
  for i in ff:
-  title=b""
-  for spi in i.split(b"\n"):
-    for ky in metadata:
-        if ky in spi:
-            spii=spi.strip().split(b" ")
-            if ky==b"INDEX":
-                spii2=spii[1].decode('utf-8')
-                spiii=check[title]
-                spiii+=[spii2]
-                check[title]=spiii
-                spi=spi.split(ky)[1].strip().split(b" ")[1]
-            else:
-                spi=spi.split(ky)[1].strip().strip(b'""')
-            if ky==b"TITLE":
-                title=spi
-                check[title]=[]
-            metadata[ky].append(spi)
-            break
- ct=[]
- fixtimestamp(check)    
+    track=parsetrack(i)
+    if len(track["indexes"])==0:
+        print(f'WARNING: No INDEX 01 found for {track["title"]}')
+        continue
+
+    metadata[b"TITLE"].append(track["title"])
+    metadata[b"PERFORMER"].append(track["performer"])
+    metadata[b"INDEX"].append(track["indexes"][0])
+ 
 def chaff(time):
     min,sec=time.split(':')
     min=int(min)
@@ -177,16 +187,9 @@ def main(args):
              asmodeus='cover.png'
             a=0
             b=0
+            totaltracks=len(datacu[b'INDEX'])
             wolfe=0
-            entrit=len(datacu[b'TITLE'])
-            entri=len(datacu[b'INDEX'])
-            if entrit==entri:
-                adde=1
-            elif entri==2*entrit:
-                adde=2
-            else:
-                print("\nCue has some missing timestamps.")
-                exit()
+            
             print("\n","—"*55)
             for i in datacu[b'TITLE']:
                 i=i.decode('utf-8')
@@ -201,17 +204,17 @@ def main(args):
                     artt='artist='+datacu[b'PERFORMER'][a].decode('utf-8')
                 except:
                     artt='artist='
-                atime=datacu[b'INDEX'][b:b+2]
-                if len(atime)==1:
-                    wolfe=1
-                    stime=atime[0].decode('utf-8')
+                stime=datacu[b'INDEX'][b].decode('utf-8').strip()
+                if b+1<totaltracks:
+                    etime=datacu[b'INDEX'][b+1].decode('utf-8').strip()
+                    diff=str(timedif(stime,etime))
+                    wolfe=0
                 else:
-                 stime,etime=atime[0].decode('utf-8').strip(),atime[1].decode('utf-8').strip()
-                 diff=str(timedif(stime,etime))
+                    wolfe=1
                 stime=stime.rsplit(":",1)[0]
                 stime=chaff(stime)
                 a+=1
-                b+=adde
+                b+=1
                 trno=f'track={a}'
                 print(f"TRACK {a}: {i}")
                 cmd=["ffmpeg","-hide_banner","-ss",stime,"-y","-i",mfile]
