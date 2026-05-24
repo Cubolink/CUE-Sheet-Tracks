@@ -222,10 +222,10 @@ def main(args):
                 if not wolfe:
                     cmd+=["-t",diff]
                 
-                cmd += ["-avoid_negative_ts","make_zero"]
+                cmd += ["-map", "0:a"]
                 
                 if ext=='.flac':
-                    cmd+=["-map","0","-c:a","flac"]
+                    cmd+=["-c:a","flac"]
                 else:
                     cmd+=["-c","copy"]
                 cmd+=[
